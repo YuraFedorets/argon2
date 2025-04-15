@@ -10,15 +10,26 @@ const rl = readline.createInterface({
 });
 
 if (fs.existsSync(FILE_PATH)) {
-    const savedHash = fs.readFileSync(FILE_PATH, 'utf8');
-    rl.question('Підтвердіть пароль: ', async (confirmPassword) => {
-        if (await argon2.verify(savedHash, confirmPassword)) {
-            console.log('Пароль підтверджено!');
-        } else {
-            console.log('Помилка: невірний пароль!');
-        }
-        rl.close();
-    });
+    try {
+        fs.chmodSync(FILE_PATH, 0o444); 
+        const savedHash = fs.readFileSync(FILE_PATH, 'utf8').trim();
+        
+        rl.question('Підтвердіть пароль: ', async (confirmPassword) => {
+            try {
+                if (await argon2.verify(savedHash, confirmPassword)) {
+                    console.log('Пароль підтверджено!');
+                } else {
+                    console.log('Помилка: невірний пароль!');
+                }
+            } catch (error) {
+                console.log('Помилка: файл містить недійсний хеш!');
+            }
+            rl.close();
+        });
+    } catch (err) {
+        console.error('Помилка читання файлу:', err);
+        process.exit(1);
+    }
 } else {
     rl.question('Введіть новий пароль: ', async (password) => {
         rl.question('Підтвердіть пароль: ', async (confirmPassword) => {
@@ -30,6 +41,7 @@ if (fs.existsSync(FILE_PATH)) {
             try {
                 const hash = await argon2.hash(password);
                 fs.writeFileSync(FILE_PATH, hash);
+                fs.chmodSync(FILE_PATH, 0o444); 
                 console.log('Пароль збережено!');
             } catch (err) {
                 console.error('Помилка збереження пароля:', err);
